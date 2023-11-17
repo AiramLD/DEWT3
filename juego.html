@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      :root {
+        --size: 30px;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      td {
+        border: 1px solid black;
+        height: var(--size);
+        width: var(--size);
+        cursor: not-allowed;
+      }
+
+      span {
+        padding: 5px;
+        color: grey;
+      }
+
+      .free {
+        background-color: grey;
+        cursor: pointer;
+      }
+
+      .player1 {
+        background-color: black;
+      }
+
+      .player2 {
+        background-color: white;
+      }
+
+      .red {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Juego</h1>
+    <p>Jugador 1: <span id="player1" class="player1">0</span></p>
+    <p>Jugador 2: <span id="player2" class="player2">0</span></p>
+    <h3>Turno para <span id="turn" class="player1">Jugador 1</span>.</h3>
+    <h3>
+      Tiempo para cambiar de turno:
+      <span id="time">5</span>
+    </h3>
+    <table></table>
+    <p><button onclick="restartGame()">Reiniciar partida</button></p>
+    <h2 id="result">--</h2>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const boardSize = 5;
+        const turnTimeSeconds = 5;
+        let currentPlayer = 1;
+        let timer;
+        const player1ScoreElement = document.getElementById("player1");
+        const player2ScoreElement = document.getElementById("player2");
+        const turnElement = document.getElementById("turn");
+        const timeElement = document.getElementById("time");
+        const tableElement = document.querySelector("table");
+        const resultElement = document.getElementById("result");
+        // Inicializar el tablero
+        let board = new Array(boardSize)
+          .fill(null)
+          .map(() => new Array(boardSize).fill(0));
+        // Función para manejar el clic en una celda
+        function handleCellClick(row, col) {
+          if (board[row][col] === 0) {
+            board[row][col] = currentPlayer;
+            updateAdjacentCells(row, col);
+            switchPlayer();
+            updateScores();
+            renderBoard();
+            checkEndGame();
+            startTurnTimer();
+          }
+        }
+        // Función para renderizar el tablero
+        function renderBoard() {
+          tableElement.innerHTML = "";
+          for (let i = 0; i < boardSize; i++) {
+            const row = document.createElement("tr");
+            for (let j = 0; j < boardSize; j++) {
+              const cell = document.createElement("td");
+              cell.dataset.row = i;
+              cell.dataset.col = j;
+              cell.addEventListener("click", () => handleCellClick(i, j));
+
+              // Cambiar las clases de las celdas según el jugador actual
+              if (board[i][j] === 1) {
+                cell.classList.add("player1");
+              } else if (board[i][j] === 2) {
+                cell.classList.add("player2");
+              } else {
+                cell.classList.add("free");
+              }
+
+              row.appendChild(cell);
+            }
+            tableElement.appendChild(row);
+          }
+        }
+        // Función para cambiar el jugador
+        function switchPlayer() {
+          currentPlayer = currentPlayer === 1 ? 2 : 1;
+          updateTurnInfo();
+        }
+
+        // Función para actualizar la información del turno
+        function updateTurnInfo() {
+          turnElement.textContent = `Turno para Jugador ${currentPlayer}`;
+          turnElement.classList.remove("player1", "player2");
+          turnElement.classList.add(`player${currentPlayer}`);
+        }
+
+        // Función para actualizar los puntajes de los jugadores
+        function updateScores() {
+          const player1Score = board.flat().filter((cell) => cell === 1).length;
+          const player2Score = board.flat().filter((cell) => cell === 2).length;
+          player1ScoreElement.textContent = player1Score;
+          player2ScoreElement.textContent = player2Score;
+        }
+
+        // Función para actualizar las celdas adyacentes
+        function updateAdjacentCells(row, col) {
+          const directions = [
+            { row: -1, col: 0 }, // Arriba
+            { row: 1, col: 0 }, // Abajo
+            { row: 0, col: -1 }, // Izquierda
+            { row: 0, col: 1 }, // Derecha
+          ];
+          directions.forEach((direction) => {
+            const newRow = row + direction.row;
+            const newCol = col + direction.col;
+            if (isValidCell(newRow, newCol) && board[newRow][newCol] !== 0) {
+              if (
+                (board[row][col] === 1 && board[newRow][newCol] === 2) ||
+                (board[row][col] === 2 && board[newRow][newCol] === 1)
+              ) {
+                board[newRow][newCol] = board[row][col];
+              }
+            }
+          });
+        }
+        // Función para verificar si una celda es válida
+        function isValidCell(row, col) {
+          return row >= 0 && row < boardSize && col >= 0 && col < boardSize;
+        }
+        // Función para verificar el final del juego
+        function checkEndGame() {
+          const freeCells = board.flat().filter((cell) => cell === 0).length;
+          if (freeCells === 0) {
+            const player1Score = board
+              .flat()
+              .filter((cell) => cell === 1).length;
+            const player2Score = board
+              .flat()
+              .filter((cell) => cell === 2).length;
+
+            if (player1Score > player2Score) {
+              resultElement.textContent = "¡Jugador 1 gana!";
+            } else if (player2Score > player1Score) {
+              resultElement.textContent = "¡Jugador 2 gana!";
+            } else {
+              resultElement.textContent = "¡Empate!";
+            }
+          }
+        }
+        // Función para iniciar el temporizador del turno
+        function startTurnTimer() {
+          clearInterval(timer);
+          let secondsLeft = turnTimeSeconds;
+          updateTimer(secondsLeft);
+
+          timer = setInterval(() => {
+            secondsLeft--;
+            updateTimer(secondsLeft);
+
+            if (secondsLeft <= 2) {
+              timeElement.classList.add("red");
+            }
+
+            if (secondsLeft === 0) {
+              switchPlayer();
+              updateTurnInfo();
+              clearInterval(timer);
+              startTurnTimer();
+            }
+          }, 1000);
+        }
+        // Función para actualizar el temporizador
+        function updateTimer(secondsLeft) {
+          timeElement.textContent = secondsLeft;
+        }
+        // Función para reiniciar la partida
+        function restartGame() {
+          board = new Array(boardSize)
+            .fill(null)
+            .map(() => new Array(boardSize).fill(0));
+          currentPlayer = 1;
+          clearInterval(timer);
+          updateTurnInfo();
+          updateScores();
+          renderBoard();
+          resultElement.textContent = "--";
+        }
+        // Inicializar el juego
+        renderBoard();
+        updateTurnInfo();
+        updateScores();
+
+        // Asignar la función restartGame al botón
+        document.querySelector("button").addEventListener("click", restartGame);
+      });
+    </script>
+  </body>
+</html>
